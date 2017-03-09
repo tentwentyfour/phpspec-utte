@@ -9,12 +9,12 @@
 phutil_register_library_map(array(
   '__library_version__' => 2,
   'class' => array(
-    'ArcanistPhpunitTestResultParser' => 'src/parser/ArcanistPhpunitTestResultParser.php',
+    'ArcanistPhpSpecTestResultParser' => 'src/parser/ArcanistPhpSpecTestResultParser.php',
     'PhpSpecUnitTestEngine' => 'src/engine/PhpSpecUnitTestEngine.php',
   ),
   'function' => array(),
   'xmap' => array(
-    'ArcanistPhpunitTestResultParser' => 'ArcanistTestResultParser',
+    'ArcanistPhpSpecTestResultParser' => 'ArcanistTestResultParser',
     'PhpSpecUnitTestEngine' => 'ArcanistUnitTestEngine',
   ),
 ));

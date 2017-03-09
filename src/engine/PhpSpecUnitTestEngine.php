@@ -1,12 +1,10 @@
 <?php
 /**
  * Based on Phacility's PHPUnitTestEngine
+ * PhpSpec wrapper for Arcanist.
  *
  * @author  David Raison <david@tentwentyfour.lu>
- */
-
-/**
- * PhpSpec wrapper.
+ *
  */
 final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
 
@@ -58,7 +56,7 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
         continue;
       }
       $config = $this->configFile ? csprintf('-c %s', $this->configFile) : null;
-      // getRenderer() ?
+      // TODO: implement getRenderer() ?
       $format = csprintf('-f junit');
 
       $futures[$test_path] = new ExecFuture(
@@ -68,54 +66,33 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
         $format,
         $test_path
       );
-
-      // Only if phpspec will write files
-      // $tmpfiles[$test_path] = [
-      //   'json' => $json_tmp,
-      //   'clover' => $clover_tmp,
-      // ];
-
     }
 
     $results = [];
-    $futures = id(new FutureIterator($futures))
-      ->limit(4);
+    $futures = id(new FutureIterator($futures))->limit(4);
+
     foreach ($futures as $test => $future) {
-
       list($err, $stdout, $stderr) = $future->resolve();
-
-      var_dump($err, $stdout, $stderr);
-
-      // if it writes files, pass in $tmpfile, otherwise
-      // pass in $stdout ?!
-      // $results[] = $this->parseTestResults(
-      //   $test,
-      //   // $tmpfiles[$test]['json'],
-      //   $stderr
-      // );
+      $results[] = $this->parseTestResults($stdout, $stderr);
     }
 
     return array_mergev($results);
   }
 
   /**
-   * Parse test results from phpunit json report.
+   * Parse test results from phpspec junit report.
    *
-   * @param string $path Path to test
-   * @param string $json_tmp Path to phpunit json report
-   * @param string $clover_tmp Path to phpunit clover report
-   * @param string $stderr Data written to stderr
+   * @param string $stdout Output of PHPSpec.
    *
    * @return array
    */
-  private function parseTestResults($path, $json_tmp, $stderr) {
-    $test_results = Filesystem::readFile($json_tmp);
+  private function parseTestResults($stdout, $stderr) {
     return id(new ArcanistPhpSpecTestResultParser())
-      ->setEnableCoverage($this->getEnableCoverage())
+      ->setEnableCoverage(false)
       ->setProjectRoot($this->projectRoot)
       ->setAffectedTests($this->affectedTests)
       ->setStderr($stderr)
-      ->parseTestResults($path, $test_results);
+      ->parseTestResults(null, $stdout);
   }
 
 
@@ -253,8 +230,8 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
   }
 
   /**
-   * Tries to find and update phpunit configuration file based on
-   * `phpunit_config` option in `.arcconfig`.
+   * Tries to find and update phpspec configuration file based on
+   * `phpspec_config` option in `.arcconfig`.
    */
   private function prepareConfigFile() {
     $project_root = $this->projectRoot.DIRECTORY_SEPARATOR;
@@ -267,7 +244,7 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
       } else {
         throw new Exception(
           pht(
-            'PHPUnit configuration file was not found in %s',
+            'PHPSpec configuration file was not found in %s',
             $project_root.$config));
       }
     }
