@@ -1,12 +1,10 @@
 <?php
 /**
  * Based on Phacility's PHPUnitTestEngine
+ * PhpSpec wrapper for Arcanist.
  *
  * @author  David Raison <david@tentwentyfour.lu>
- */
-
-/**
- * PhpSpec wrapper.
+ *
  */
 final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
 
@@ -58,7 +56,7 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
         continue;
       }
       $config = $this->configFile ? csprintf('-c %s', $this->configFile) : null;
-      // getRenderer() ?
+      // TODO: implement getRenderer() ?
       $format = csprintf('-f junit');
 
       $futures[$test_path] = new ExecFuture(
@@ -75,7 +73,6 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
 
     foreach ($futures as $test => $future) {
       list($err, $stdout, $stderr) = $future->resolve();
-
       $results[] = $this->parseTestResults($stdout, $stderr);
     }
 
@@ -83,9 +80,9 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
   }
 
   /**
-   * Parse test results from phpunit json report.
+   * Parse test results from phpspec junit report.
    *
-   * @param string $stdout Output of PHP Spec.
+   * @param string $stdout Output of PHPSpec.
    *
    * @return array
    */
@@ -233,8 +230,8 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
   }
 
   /**
-   * Tries to find and update phpunit configuration file based on
-   * `phpunit_config` option in `.arcconfig`.
+   * Tries to find and update phpspec configuration file based on
+   * `phpspec_config` option in `.arcconfig`.
    */
   private function prepareConfigFile() {
     $project_root = $this->projectRoot.DIRECTORY_SEPARATOR;
@@ -247,7 +244,7 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
       } else {
         throw new Exception(
           pht(
-            'PHPUnit configuration file was not found in %s',
+            'PHPSpec configuration file was not found in %s',
             $project_root.$config));
       }
     }

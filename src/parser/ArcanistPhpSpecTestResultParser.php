@@ -1,9 +1,9 @@
 <?php
-
 /**
  * PHPSpec Result Parsing utility.
  *
- * For reference, see @{class:PhpunitTestEngine}.
+ * @author  Florian Simon <florian@tentwentyfour.lu>
+ *
  */
 final class ArcanistPhpSpecTestResultParser extends ArcanistTestResultParser
 {
@@ -66,9 +66,11 @@ final class ArcanistPhpSpecTestResultParser extends ArcanistTestResultParser
      */
     private function setFailureDetails($result, $test)
     {
-        $failureInfo = null;
-
-        $failureInfo = $test->failure["type"] . ": " . $test->failure["message"];
+        $failureInfo = sprintf(
+            '%s: %s',
+            $test->failure["type"],
+            $test->failure["message"]
+        );
 
         $result->setUserData($failureInfo);
 
@@ -79,7 +81,7 @@ final class ArcanistPhpSpecTestResultParser extends ArcanistTestResultParser
      * Converts the raw PHPSpec output into a simplexml
      * document in the JUnit format.
      *
-     * @param string $xml String containing JSON report.
+     * @param string $xml String containing PHPSpec report.
      *
      * @return simplexml XML node containing the entire test results in the JUnit format.
      */
@@ -90,7 +92,7 @@ final class ArcanistPhpSpecTestResultParser extends ArcanistTestResultParser
                 pht(
                     'XML report file is empty, it probably means that phpspec '.
                     'failed to run tests. Try running %s with %s option and then run '.
-                    'generated phpunit command yourself, you might get the answer.',
+                    'generated phpspec command yourself, you might get the answer.',
                     'arc unit',
                     '--trace'
                 )
