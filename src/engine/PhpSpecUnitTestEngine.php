@@ -68,31 +68,15 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
         $format,
         $test_path
       );
-
-      // Only if phpspec will write files
-      // $tmpfiles[$test_path] = [
-      //   'json' => $json_tmp,
-      //   'clover' => $clover_tmp,
-      // ];
-
     }
 
     $results = [];
-    $futures = id(new FutureIterator($futures))
-      ->limit(4);
-    foreach ($futures as $test => $future) {
+    $futures = id(new FutureIterator($futures))->limit(4);
 
+    foreach ($futures as $test => $future) {
       list($err, $stdout, $stderr) = $future->resolve();
 
-      var_dump($err, $stdout, $stderr);
-
-      // if it writes files, pass in $tmpfile, otherwise
-      // pass in $stdout ?!
-      // $results[] = $this->parseTestResults(
-      //   $test,
-      //   // $tmpfiles[$test]['json'],
-      //   $stderr
-      // );
+      $results[] = $this->parseTestResults($stdout, $stderr);
     }
 
     return array_mergev($results);
@@ -101,21 +85,17 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
   /**
    * Parse test results from phpunit json report.
    *
-   * @param string $path Path to test
-   * @param string $json_tmp Path to phpunit json report
-   * @param string $clover_tmp Path to phpunit clover report
-   * @param string $stderr Data written to stderr
+   * @param string $stdout Output of PHP Spec.
    *
    * @return array
    */
-  private function parseTestResults($path, $json_tmp, $stderr) {
-    $test_results = Filesystem::readFile($json_tmp);
+  private function parseTestResults($stdout, $stderr) {
     return id(new ArcanistPhpSpecTestResultParser())
       ->setEnableCoverage(false)
       ->setProjectRoot($this->projectRoot)
       ->setAffectedTests($this->affectedTests)
       ->setStderr($stderr)
-      ->parseTestResults($path, $test_results);
+      ->parseTestResults(null, $stdout);
   }
 
 

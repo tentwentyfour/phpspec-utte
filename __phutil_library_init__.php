@@ -1,3 +1,3 @@
 <?php
 
-phutil_register_library('phpspec-unittestengine', __FILE__);
+phutil_register_library('phpspec-utte', __FILE__);

@@ -5,48 +5,47 @@
  *
  * For reference, see @{class:PhpunitTestEngine}.
  */
-final class ArcanistPhpunitTestResultParser extends ArcanistTestResultParser
+final class ArcanistPhpSpecTestResultParser extends ArcanistTestResultParser
 {
     /**
      * Parse test results from phpunit json report
      *
-     * @param string $path         Path to test.
-     * @param string $test_results String containing phpunit json report.
+     * @param string $testResults String containing phpspec xml report.
      *
      * @return array
      */
-    public function parseTestResults($path, $test_results)
+    public function parseTestResults($_, $testResults)
     {
-        if (!$test_results) {
+        if (!$testResults) {
             $result = (new ArcanistUnitTestResult())
-            ->setName($path)
+            ->setName("Tests")
             ->setUserData($this->stderr)
             ->setResult(ArcanistUnitTestResult::RESULT_BROKEN);
 
             return [$result];
         }
 
-        $report = $this->getJunitReport($test_results);
+        $report = $this->getJunitReport($testResults);
 
         $results = [];
 
-        foreach ($report->testsuites as $suite) {
+        foreach ($report->testsuite as $suite) {
             foreach ($suite->testcase as $test) {
                 $result = new ArcanistUnitTestResult();
 
-                $result->setName($suite->name . ": " . $test->name);
+                $result->setName($suite["name"] . ": " . $test["name"]);
 
-                if ($test->status === "passed") {
+                if ((string) $test["status"] === "passed") {
                     $result->setResult(ArcanistUnitTestResult::RESULT_PASS);
-                } else $test->status === "skipped") {
+                } else if ((string) $test["status"] === "skipped") {
                     $result->setResult(ArcanistUnitTestResult::RESULT_SKIP);
                 } else {
                     $this
-                    ->setFailureDetails($result, $test);
+                    ->setFailureDetails($result, $test)
                     ->setResult(ArcanistUnitTestResult::RESULT_FAIL);
                 }
 
-                $result->setDuration(floatval($test->time));
+                $result->setDuration(floatval($test["time"]));
 
                 $results[] = $result;
             }
@@ -69,7 +68,7 @@ final class ArcanistPhpunitTestResultParser extends ArcanistTestResultParser
     {
         $failureInfo = null;
 
-        $failureInfo = $test->failure->type . ": " . $test->failure->message;
+        $failureInfo = $test->failure["type"] . ": " . $test->failure["message"];
 
         $result->setUserData($failureInfo);
 
