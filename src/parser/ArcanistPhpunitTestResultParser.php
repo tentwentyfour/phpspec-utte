@@ -1,188 +1,103 @@
 <?php
 
 /**
- * PHPUnit Result Parsing utility
+ * PHPSpec Result Parsing utility.
  *
- * For an example on how to integrate with your test engine, see
- * @{class:PhpunitTestEngine}.
+ * For reference, see @{class:PhpunitTestEngine}.
  */
-final class ArcanistPhpunitTestResultParser extends ArcanistTestResultParser {
+final class ArcanistPhpunitTestResultParser extends ArcanistTestResultParser
+{
+    /**
+     * Parse test results from phpunit json report
+     *
+     * @param string $path         Path to test.
+     * @param string $test_results String containing phpunit json report.
+     *
+     * @return array
+     */
+    public function parseTestResults($path, $test_results)
+    {
+        if (!$test_results) {
+            $result = (new ArcanistUnitTestResult())
+            ->setName($path)
+            ->setUserData($this->stderr)
+            ->setResult(ArcanistUnitTestResult::RESULT_BROKEN);
 
-  /**
-   * Parse test results from phpunit json report
-   *
-   * @param string $path Path to test
-   * @param string $test_results String containing phpunit json report
-   *
-   * @return array
-   */
-  public function parseTestResults($path, $test_results) {
-    if (!$test_results) {
-      $result = id(new ArcanistUnitTestResult())
-        ->setName($path)
-        ->setUserData($this->stderr)
-        ->setResult(ArcanistUnitTestResult::RESULT_BROKEN);
-      return array($result);
-    }
-
-    $report = $this->getJsonReport($test_results);
-
-    // coverage is for all testcases in the executed $path
-    $coverage = array();
-    if ($this->enableCoverage !== false) {
-      $coverage = $this->readCoverage();
-    }
-
-    $last_test_finished = true;
-
-    $results = array();
-    foreach ($report as $event) {
-      switch (idx($event, 'event')) {
-      case 'test':
-        break;
-      case 'testStart':
-        $last_test_finished = false;
-        // fall through
-        default:
-          continue 2; // switch + loop
-      }
-
-      $status = ArcanistUnitTestResult::RESULT_PASS;
-      $user_data = '';
-
-      if ('fail' == idx($event, 'status')) {
-        $status = ArcanistUnitTestResult::RESULT_FAIL;
-        $user_data  .= idx($event, 'message')."\n";
-        foreach (idx($event, 'trace') as $trace) {
-          $user_data .= sprintf(
-            "\n%s:%s",
-            idx($trace, 'file'),
-            idx($trace, 'line'));
+            return [$result];
         }
-      } else if ('error' == idx($event, 'status')) {
-        if (strpos(idx($event, 'message'), 'Skipped Test') !== false) {
-          $status = ArcanistUnitTestResult::RESULT_SKIP;
-          $user_data .= idx($event, 'message');
-        } else if (strpos(
-            idx($event, 'message'),
-            'Incomplete Test') !== false) {
-          $status = ArcanistUnitTestResult::RESULT_SKIP;
-          $user_data .= idx($event, 'message');
-        } else {
-          $status = ArcanistUnitTestResult::RESULT_BROKEN;
-          $user_data  .= idx($event, 'message');
-          foreach (idx($event, 'trace') as $trace) {
-            $user_data .= sprintf(
-              "\n%s:%s",
-              idx($trace, 'file'),
-              idx($trace, 'line'));
-          }
+
+        $report = $this->getJunitReport($test_results);
+
+        $results = [];
+
+        foreach ($report->testsuites as $suite) {
+            foreach ($suite->testcase as $test) {
+                $result = new ArcanistUnitTestResult();
+
+                $result->setName($suite->name . ": " . $test->name);
+
+                if ($test->status === "passed") {
+                    $result->setResult(ArcanistUnitTestResult::RESULT_PASS);
+                } else $test->status === "skipped") {
+                    $result->setResult(ArcanistUnitTestResult::RESULT_SKIP);
+                } else {
+                    $this
+                    ->setFailureDetails($result, $test);
+                    ->setResult(ArcanistUnitTestResult::RESULT_FAIL);
+                }
+
+                $result->setDuration(floatval($test->time));
+
+                $results[] = $result;
+            }
         }
-      }
 
-      $name = preg_replace('/ \(.*\)/s', '', idx($event, 'test'));
-
-      $result = new ArcanistUnitTestResult();
-      $result->setName($name);
-      $result->setResult($status);
-      $result->setDuration(idx($event, 'time'));
-      $result->setCoverage($coverage);
-      $result->setUserData($user_data);
-
-      $results[] = $result;
-      $last_test_finished = true;
+        return $results;
     }
 
-    if (!$last_test_finished) {
-      $results[] = id(new ArcanistUnitTestResult())
-        ->setName(idx($event, 'test')) // use last event
-        ->setUserData($this->stderr)
-        ->setResult(ArcanistUnitTestResult::RESULT_BROKEN);
+    /**
+     * When a test has failed, this adds info about the failure
+     * on the Arcanist test result object.
+     *
+     * @param ArcanistUnitTestResult $result The result where the failure info will be set. This
+     *                                       is an output variable.
+     * @param simplexml              $test   The failing test.
+     *
+     * @return ArcanistUnitTestResult The arcanist test result, for chaining purposes.
+     */
+    private function setFailureDetails($result, $test)
+    {
+        $failureInfo = null;
+
+        $failureInfo = $test->failure->type . ": " . $test->failure->message;
+
+        $result->setUserData($failureInfo);
+
+        return $result;
     }
-    return $results;
-  }
 
-  /**
-   * Read the coverage from phpunit generated clover report
-   *
-   * @return array
-   */
-  private function readCoverage() {
-    $test_results = Filesystem::readFile($this->coverageFile);
-    if (empty($test_results)) {
-      return array();
-    }
-
-    $coverage_dom = new DOMDocument();
-    $coverage_dom->loadXML($test_results);
-
-    $reports = array();
-    $files = $coverage_dom->getElementsByTagName('file');
-
-    foreach ($files as $file) {
-      $class_path = $file->getAttribute('name');
-      if (empty($this->affectedTests[$class_path])) {
-        continue;
-      }
-      $test_path = $this->affectedTests[$file->getAttribute('name')];
-      // get total line count in file
-      $line_count = count(file($class_path));
-
-      $coverage = '';
-      $any_line_covered = false;
-      $start_line = 1;
-      $lines = $file->getElementsByTagName('line');
-
-      $coverage = str_repeat('N', $line_count);
-      foreach ($lines as $line) {
-        if ($line->getAttribute('type') != 'stmt') {
-          continue;
+    /**
+     * Converts the raw PHPSpec output into a simplexml
+     * document in the JUnit format.
+     *
+     * @param string $xml String containing JSON report.
+     *
+     * @return simplexml XML node containing the entire test results in the JUnit format.
+     */
+    private function getJunitReport($xml)
+    {
+        if (empty($xml)) {
+            throw new Exception(
+                pht(
+                    'XML report file is empty, it probably means that phpspec '.
+                    'failed to run tests. Try running %s with %s option and then run '.
+                    'generated phpunit command yourself, you might get the answer.',
+                    'arc unit',
+                    '--trace'
+                )
+            );
         }
-        if ((int)$line->getAttribute('count') > 0) {
-          $is_covered = 'C';
-          $any_line_covered = true;
-        } else {
-          $is_covered = 'U';
-        }
-        $line_no = (int)$line->getAttribute('num');
-        $coverage[$line_no - 1] = $is_covered;
-      }
 
-      // Sometimes the Clover coverage gives false positives on uncovered lines
-      // when the file wasn't actually part of the test. This filters out files
-      // with no coverage which helps give more accurate overall results.
-      if ($any_line_covered) {
-        $len = strlen($this->projectRoot.DIRECTORY_SEPARATOR);
-        $class_path = substr($class_path, $len);
-        $reports[$class_path] = $coverage;
-      }
+        return simplexml_load_string($xml);
     }
-
-    return $reports;
-  }
-
-  /**
-   * We need this non-sense to make json generated by phpunit
-   * valid.
-   *
-   * @param string $json String containing JSON report
-   * @return array JSON decoded array
-   */
-  private function getJsonReport($json) {
-
-    if (empty($json)) {
-      throw new Exception(
-        pht(
-          'JSON report file is empty, it probably means that phpunit '.
-          'failed to run tests. Try running %s with %s option and then run '.
-          'generated phpunit command yourself, you might get the answer.',
-          'arc unit',
-          '--trace'));
-    }
-
-    $json = preg_replace('/}{\s*"/', '},{"', $json);
-    $json = '['.$json.']';
-    return phutil_json_decode($json);
-  }
-
 }
