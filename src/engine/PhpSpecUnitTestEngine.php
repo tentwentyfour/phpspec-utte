@@ -111,7 +111,7 @@ final class PhpSpecUnitTestEngine extends ArcanistUnitTestEngine {
   private function parseTestResults($path, $json_tmp, $stderr) {
     $test_results = Filesystem::readFile($json_tmp);
     return id(new ArcanistPhpSpecTestResultParser())
-      ->setEnableCoverage($this->getEnableCoverage())
+      ->setEnableCoverage(false)
       ->setProjectRoot($this->projectRoot)
       ->setAffectedTests($this->affectedTests)
       ->setStderr($stderr)
