@@ -1,0 +1,17 @@
+{
+    "name": "1024/phpspec-utte",
+    "description": "PhpSpec Unit-Test Engine for Arcanist",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "David Raison",
+            "email": "david@tentwentyfour.lu"
+        },
+        {
+            "name": "Florian Simon",
+            "email": "florian@tentwentyfour.lu"
+        }
+    ],
+    "require": {}
+}
